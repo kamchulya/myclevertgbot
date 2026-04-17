@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>САК Планер</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fff;--bg2:#f7f6f3;--bg3:#f0efe9;
+  --text:#1a1a1a;--text2:#555;--text3:#888;
+  --border:#e0ddd6;
+  --blue:#1a4fbb;--blue-bg:#eef4ff;
+  --teal:#0a6b50;--teal-bg:#e2f4ee;
+  --red:#b52a2a;--red-bg:#fff0f0;
+  --amber:#7a4800;--amber-bg:#fff5e0;
+  --green:#1a6b3a;--green-bg:#edfaf3;
+  --warn:#e67e00;--warn-bg:#fff8ee;
+  --radius:10px;--radius-lg:14px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1a1a1a;--bg2:#242424;--bg3:#2c2c2c;
+    --text:#f0f0f0;--text2:#aaa;--text3:#666;
+    --border:#333;
+    --blue:#4a7fff;--blue-bg:#1a2a4a;
+    --teal:#2dd4a0;--teal-bg:#0a2a20;
+    --red:#ff6b6b;--red-bg:#2a1010;
+    --green:#4ade80;--green-bg:#0a2a15;
+  }
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.5;padding-bottom:80px}
+
+.tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.tab{flex:1;padding:13px 8px;text-align:center;font-size:13px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+
+.pane{display:none;padding:16px}
+.pane.active{display:block}
+
+.day-nav{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px;scrollbar-width:none}
+.day-nav::-webkit-scrollbar{display:none}
+.day-btn{flex-shrink:0;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text3);white-space:nowrap;transition:all .15s}
+.day-btn.today{background:var(--blue);color:#fff;border-color:var(--blue)}
+.day-btn.has-done{border-color:var(--teal);color:var(--teal)}
+
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat{background:var(--bg2);border-radius:var(--radius);padding:11px 12px}
+.stat-label{font-size:11px;color:var(--text3);margin-bottom:3px}
+.stat-val{font-size:20px;font-weight:600;color:var(--text)}
+.stat-sub{font-size:11px;color:var(--text2);margin-top:1px}
+.pb{height:3px;background:var(--border);border-radius:2px;margin-top:5px}
+.pbf{height:100%;border-radius:2px;background:var(--teal);transition:width .4s}
+
+.filter-row{display:flex;gap:5px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none;padding-bottom:2px}
+.filter-row::-webkit-scrollbar{display:none}
+.ftab{flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text3);transition:all .15s}
+.ftab.f-all{background:var(--bg2);color:var(--text);border-color:var(--border)}
+.ftab.f-morning{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
+.ftab.f-bots{background:var(--blue-bg);color:var(--blue);border-color:var(--blue)}
+.ftab.f-clinics{background:var(--teal-bg);color:var(--teal);border-color:var(--teal)}
+.ftab.f-reels{background:var(--amber-bg);color:var(--amber);border-color:var(--amber)}
+
+.sec-label{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin:14px 0 7px}
+
+.task{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .15s}
+.task.done{opacity:.5}
+.task.done .t-text{text-decoration:line-through;color:var(--text3)}
+.t-check{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;transition:all .15s}
+.task.done .t-check{background:var(--teal);border-color:var(--teal)}
+.chk-svg{display:none}
+.task.done .chk-svg{display:block}
+.t-body{flex:1;min-width:0}
+.t-text{font-size:13px;color:var(--text);line-height:1.4;margin-bottom:3px}
+.t-meta{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.t-tag{font-size:10px;font-weight:500;padding:2px 7px;border-radius:20px}
+.tg-m{background:var(--warn-bg);color:var(--warn)}
+.tg-b{background:var(--blue-bg);color:var(--blue)}
+.tg-c{background:var(--teal-bg);color:var(--teal)}
+.tg-r{background:var(--amber-bg);color:var(--amber)}
+.t-time{font-size:11px;color:var(--text3)}
+.t-pri{font-size:10px;color:var(--red);font-weight:500}
+
+.weight-box{display:flex;align-items:center;gap:8px;background:var(--bg2);border-radius:var(--radius);padding:11px 14px;margin-bottom:14px}
+.weight-box label{font-size:13px;color:var(--text2);flex:1}
+.weight-box input{width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-weight:500;color:var(--text);background:var(--bg);text-align:center}
+.weight-box span{font-size:13px;color:var(--text3)}
+.weight-box button{padding:6px 14px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer}
+.w-saved{font-size:11px;color:var(--teal);display:none;margin-left:2px}
+
+.note-label{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin:14px 0 7px}
+textarea.note{width:100%;min-height:80px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit;resize:vertical;line-height:1.5}
+textarea.note:focus{outline:none;border-color:var(--blue)}
+textarea.note::placeholder{color:var(--text3)}
+
+.voice-area{background:var(--bg2);border-radius:var(--radius-lg);padding:14px;margin-bottom:14px}
+.voice-row{display:flex;gap:10px;align-items:flex-start}
+.mic-btn{width:42px;height:42px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s}
+.mic-btn.rec{background:var(--red);color:#fff}
+textarea.thought-in{flex:1;min-height:80px;padding:9px 11px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit;resize:vertical;line-height:1.5}
+textarea.thought-in:focus{outline:none;border-color:var(--blue)}
+textarea.thought-in::placeholder{color:var(--text3)}
+.voice-status{font-size:12px;color:var(--text3);margin-top:6px;min-height:18px}
+.save-btn{width:100%;padding:12px;border-radius:var(--radius);background:var(--blue);color:#fff;border:none;font-size:14px;font-weight:500;cursor:pointer;margin-top:10px;transition:opacity .15s}
+.save-btn:active{opacity:.85}
+
+.thought-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:13px 15px;margin-bottom:10px}
+.thought-date{font-size:11px;color:var(--text3);margin-bottom:5px}
+.thought-text{font-size:14px;color:var(--text);line-height:1.65;white-space:pre-wrap}
+.thought-del{font-size:11px;color:var(--red);background:none;border:none;cursor:pointer;padding:0;margin-top:8px}
+.empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:14px;line-height:1.6}
+
+.wc-wrap{margin-top:16px}
+.wc-label{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.wc-bars{display:flex;align-items:flex-end;gap:4px;height:100px;margin-bottom:4px}
+.wc-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
+.wc-bar{width:100%;border-radius:3px 3px 0 0;background:var(--blue-bg);transition:height .3s;min-height:4px}
+.wc-day{font-size:9px;color:var(--text3);text-align:center}
+.wc-val{font-size:9px;color:var(--text2);text-align:center}
+.wc-empty{font-size:13px;color:var(--text3);text-align:center;padding:24px}
+
+.reset-btn{font-size:12px;padding:4px 10px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;float:right}
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('planner',this)">День</div>
+  <div class="tab" onclick="switchTab('thoughts',this)">Мысли</div>
+  <div class="tab" onclick="switchTab('weight',this)">Вес</div>
+</div>
+
+<div id="pane-planner" class="pane active">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div>
+      <div style="font-size:17px;font-weight:600;color:var(--text)" id="dayTitle">Сегодня</div>
+      <div style="font-size:12px;color:var(--text3)" id="dayDate"></div>
+    </div>
+    <button class="reset-btn" onclick="resetDay()">Сбросить</button>
+  </div>
+
+  <div class="day-nav" id="dayNav"></div>
+
+  <div class="weight-box">
+    <label>Вес сегодня</label>
+    <input id="wInp" type="number" step="0.1" placeholder="—" min="40" max="150">
+    <span>кг</span>
+    <button onclick="saveW()">✓</button>
+    <span class="w-saved" id="wSaved">сохранено</span>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat">
+      <div class="stat-label">Выполнено</div>
+      <div class="stat-val" id="sDone">0</div>
+      <div class="stat-sub" id="sOf">из 0</div>
+      <div class="pb"><div class="pbf" id="pbf" style="width:0%"></div></div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Чат-боты</div>
+      <div class="stat-val" id="sB" style="color:var(--blue)">0/0</div>
+      <div class="stat-sub">6 продажников</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Клиники</div>
+      <div class="stat-val" id="sC" style="color:var(--teal)">0/0</div>
+      <div class="stat-sub">стоматологии КЗ</div>
+    </div>
+  </div>
+
+  <div class="filter-row">
+    <button class="ftab f-all" onclick="setF('all',this)">Все</button>
+    <button class="ftab" onclick="setF('morning',this)">Утро</button>
+    <button class="ftab" onclick="setF('bots',this)">Чат-боты</button>
+    <button class="ftab" onclick="setF('clinics',this)">Клиники</button>
+    <button class="ftab" onclick="setF('reels',this)">Рилсы</button>
+  </div>
+
+  <div id="taskList"></div>
+
+  <div class="note-label">Заметки дня</div>
+  <textarea class="note" id="noteIn" placeholder="Кто ответил? Что сработало? Инсайты дня..." oninput="saveNote()"></textarea>
+</div>
+
+<div id="pane-thoughts" class="pane">
+  <div class="voice-area">
+    <div class="voice-row">
+      <button class="mic-btn" id="micBtn" onclick="toggleMic()">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <rect x="6" y="1" width="6" height="10" rx="3" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M3 9a6 6 0 0012 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="9" y1="15" x2="9" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <textarea class="thought-in" id="thoughtIn" placeholder="Пиши мысль или нажми микрофон и говори...&#10;Всё сохранится — потом сделаем книгу."></textarea>
+    </div>
+    <div class="voice-status" id="vStatus"></div>
+    <button class="save-btn" onclick="saveThought()">Сохранить в книгу</button>
+  </div>
+  <div id="thoughtsList"></div>
+</div>
+
+<div id="pane-weight" class="pane">
+  <div class="weight-box" style="margin-bottom:8px">
+    <label>Записать вес</label>
+    <input id="wInp2" type="number" step="0.1" placeholder="—" min="40" max="150">
+    <span>кг</span>
+    <button onclick="saveW2()">✓</button>
+    <span class="w-saved" id="wSaved2">сохранено</span>
+  </div>
+  <div class="wc-wrap">
+    <div class="wc-label">Динамика за 14 дней</div>
+    <div id="wChart"></div>
+  </div>
+</div>
+
+<script>
+const TASKS=[
+  {id:'m1',p:'morning',time:'05:00',pri:true,text:'Пробежка — минимум 20 минут',tag:'Утро',tg:'tg-m'},
+  {id:'m2',p:'morning',time:'05:30',text:'Записать вес',tag:'Утро',tg:'tg-m'},
+  {id:'m3',p:'morning',time:'05:45',text:'Стакан воды + 10 минут тишины',tag:'Утро',tg:'tg-m'},
+  {id:'b1',p:'bots',time:'09:00',pri:true,text:'Созвон с командой — разбор результатов вчера',tag:'Чат-боты',tg:'tg-b'},
+  {id:'b2',p:'bots',time:'10:00',text:'Проверить CRM — сколько лидов обработано',tag:'Чат-боты',tg:'tg-b'},
+  {id:'b3',p:'bots',time:'11:00',text:'Скрипт ответа на топ-3 возражения',tag:'Чат-боты',tg:'tg-b'},
+  {id:'b4',p:'bots',time:'14:00',text:'Конверсия по каждому из 6 продажников',tag:'Чат-боты',tg:'tg-b'},
+  {id:'b5',p:'bots',time:'16:00',text:'Задачи продажникам на завтра в чат',tag:'Чат-боты',tg:'tg-b'},
+  {id:'c1',p:'clinics',time:'09:30',pri:true,text:'2GIS — выписать 10 стоматологий (название, номер)',tag:'Клиники',tg:'tg-c'},
+  {id:'c2',p:'clinics',time:'10:30',text:'Позвонить в 5 клиник — узнать имя директора',tag:'Клиники',tg:'tg-c'},
+  {id:'c3',p:'clinics',time:'11:30',pri:true,text:'Отправить 5 WhatsApp-сообщений (пауза 15 мин)',tag:'Клиники',tg:'tg-c'},
+  {id:'c4',p:'clinics',time:'13:00',text:'Проверить ответы — предложить созвон',tag:'Клиники',tg:'tg-c'},
+  {id:'c5',p:'clinics',time:'15:00',text:'Отправить ещё 5 сообщений — вторая партия',tag:'Клиники',tg:'tg-c'},
+  {id:'c6',p:'clinics',time:'17:00',text:'Итоги: отправлено / ответили / созвон назначен',tag:'Клиники',tg:'tg-c'},
+  {id:'r1',p:'reels',time:'12:00',pri:true,text:'Рилс №1: «Клиника занята, денег нет — вот почему»',tag:'Рилсы',tg:'tg-r'},
+  {id:'r2',p:'reels',time:'19:00',text:'Рилс №2: скрин дашборда владельца',tag:'Рилсы',tg:'tg-r'},
+  {id:'r3',p:'reels',time:'20:00',text:'Запостить в Instagram и TikTok + хэштеги',tag:'Рилсы',tg:'tg-r'},
+  {id:'r4',p:'reels',time:'20:30',text:'Stories: «Запустила новый проект»',tag:'Рилсы',tg:'tg-r'},
+];
+
+const M=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const DS=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+let curDay=tKey(), curF='all', rec=null, isRec=false;
+
+function tKey(){return new Date().toISOString().split('T')[0]}
+function sk(k){return'pl_'+k}
+function nk(k){return'pn_'+k}
+function wk(k){return'pw_'+k}
+function thk(){return'pth'}
+
+// Используем Telegram CloudStorage если доступно, иначе localStorage
+const store={
+  get(key){
+    return new Promise(r=>{
+      if(window.Telegram?.WebApp?.CloudStorage){
+        Telegram.WebApp.CloudStorage.getItem(key,(_,v)=>r(v||null));
+      } else {
+        r(localStorage.getItem(key));
+      }
+    });
+  },
+  set(key,val){
+    if(window.Telegram?.WebApp?.CloudStorage){
+      Telegram.WebApp.CloudStorage.setItem(key,val);
+    } else {
+      localStorage.setItem(key,val);
+    }
+  }
+};
+
+async function loadDone(k){try{const v=await store.get(sk(k));return v?JSON.parse(v):{}}catch{return{}}}
+async function saveDone(k,d){store.set(sk(k),JSON.stringify(d))}
+async function loadNote(k){return(await store.get(nk(k)))||''}
+function saveNote(){store.set(nk(curDay),document.getElementById('noteIn').value)}
+async function loadWeight(k){const v=await store.get(wk(k));return v?parseFloat(v):null}
+function saveWeightVal(k,v){store.set(wk(k),String(v))}
+async function loadThoughts(){try{const v=await store.get(thk());return v?JSON.parse(v):[]}catch{return[]}}
+async function saveThoughts(t){store.set(thk(),JSON.stringify(t))}
+
+function switchTab(id,btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('pane-'+id).classList.add('active');
+  if(id==='weight')renderWChart();
+  if(id==='thoughts')renderThoughts();
+}
+
+async function buildNav(){
+  const nav=document.getElementById('dayNav');
+  nav.innerHTML='';
+  const today=new Date();
+  for(let i=-3;i<=5;i++){
+    const d=new Date(today);d.setDate(today.getDate()+i);
+    const key=d.toISOString().split('T')[0];
+    const done=await loadDone(key);
+    const hasDone=Object.values(done).some(Boolean);
+    const isCur=key===curDay;
+    const btn=document.createElement('button');
+    btn.className='day-btn'+(isCur?' today':'')+((!isCur&&hasDone)?' has-done':'');
+    btn.textContent=(i===0?'Сегодня ':DS[d.getDay()]+' ')+d.getDate();
+    btn.onclick=()=>switchDay(key);
+    nav.appendChild(btn);
+  }
+}
+
+async function switchDay(key){
+  curDay=key;
+  const d=new Date(key);
+  const isToday=key===tKey();
+  document.getElementById('dayTitle').textContent=isToday?'Сегодня':DS[d.getDay()]+', '+d.getDate()+' '+M[d.getMonth()];
+  const w=await loadWeight(key);
+  if(w)document.getElementById('wInp').value=w;
+  else document.getElementById('wInp').value='';
+  document.getElementById('noteIn').value=await loadNote(key);
+  buildNav();
+  renderTasks();
+}
+
+function setF(f,btn){
+  curF=f;
+  document.querySelectorAll('.ftab').forEach(b=>{
+    b.classList.remove('f-all','f-morning','f-bots','f-clinics','f-reels');
+  });
+  btn.classList.add('f-'+f);
+  renderTasks();
+}
+
+async function renderTasks(){
+  const done=await loadDone(curDay);
+  const list=document.getElementById('taskList');
+  list.innerHTML='';
+  const filtered=curF==='all'?TASKS:TASKS.filter(t=>t.p===curF);
+  const secs=curF==='all'
+    ?[{l:'Утро — 05:00',ts:filtered.filter(t=>t.p==='morning')},
+      {l:'Чат-боты — управление командой',ts:filtered.filter(t=>t.p==='bots')},
+      {l:'Клиники САК — продажи',ts:filtered.filter(t=>t.p==='clinics')},
+      {l:'Рилсы — контент',ts:filtered.filter(t=>t.p==='reels')}]
+    :[{l:'',ts:filtered}];
+  secs.forEach(s=>{
+    if(!s.ts.length)return;
+    if(s.l){const l=document.createElement('div');l.className='sec-label';l.textContent=s.l;list.appendChild(l);}
+    s.ts.forEach(task=>{
+      const isDone=!!done[task.id];
+      const el=document.createElement('div');
+      el.className='task'+(isDone?' done':'');
+      el.innerHTML=`
+        <div class="t-check">
+          <svg class="chk-svg" width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <path d="M1.5 5.5l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="t-body">
+          <div class="t-text">${task.text}</div>
+          <div class="t-meta">
+            <span class="t-tag ${task.tg}">${task.tag}</span>
+            <span class="t-time">${task.time}</span>
+            ${task.pri?'<span class="t-pri">приоритет</span>':''}
+          </div>
+        </div>`;
+      el.onclick=()=>toggleTask(task.id);
+      list.appendChild(el);
+    });
+  });
+  updateStats(done);
+}
+
+async function toggleTask(id){
+  const done=await loadDone(curDay);
+  done[id]=!done[id];
+  await saveDone(curDay,done);
+  renderTasks();
+  buildNav();
+}
+
+function updateStats(done){
+  const total=TASKS.length;
+  const dc=TASKS.filter(t=>done[t.id]).length;
+  const bd=TASKS.filter(t=>t.p==='bots'&&done[t.id]).length;
+  const bt=TASKS.filter(t=>t.p==='bots').length;
+  const cd=TASKS.filter(t=>t.p==='clinics'&&done[t.id]).length;
+  const ct=TASKS.filter(t=>t.p==='clinics').length;
+  document.getElementById('sDone').textContent=dc;
+  document.getElementById('sOf').textContent='из '+total;
+  document.getElementById('pbf').style.width=Math.round(dc/total*100)+'%';
+  document.getElementById('sB').textContent=bd+'/'+bt;
+  document.getElementById('sC').textContent=cd+'/'+ct;
+}
+
+async function resetDay(){
+  await saveDone(curDay,{});
+  renderTasks();buildNav();
+}
+
+async function saveW(){
+  const v=parseFloat(document.getElementById('wInp').value);
+  if(!v)return;
+  saveWeightVal(curDay,v);
+  const el=document.getElementById('wSaved');
+  el.style.display='inline';
+  setTimeout(()=>el.style.display='none',2000);
+}
+
+async function saveW2(){
+  const v=parseFloat(document.getElementById('wInp2').value);
+  if(!v)return;
+  saveWeightVal(curDay,v);
+  renderWChart();
+  const el=document.getElementById('wSaved2');
+  el.style.display='inline';
+  setTimeout(()=>el.style.display='none',2000);
+}
+
+async function renderWChart(){
+  const chart=document.getElementById('wChart');
+  const data=[];
+  const today=new Date();
+  for(let i=13;i>=0;i--){
+    const d=new Date(today);d.setDate(today.getDate()-i);
+    const key=d.toISOString().split('T')[0];
+    const w=await loadWeight(key);
+    data.push({day:DS[d.getDay()]+' '+d.getDate(),val:w});
+  }
+  const vals=data.filter(d=>d.val).map(d=>d.val);
+  if(!vals.length){chart.innerHTML='<div class="wc-empty">Пока нет данных — запиши первый вес</div>';return;}
+  const mn=Math.min(...vals)-0.5,mx=Math.max(...vals)+0.5;
+  const range=mx-mn||1;
+  chart.innerHTML=`<div class="wc-bars">${data.map(d=>{
+    const h=d.val?Math.round((d.val-mn)/range*85)+10:3;
+    return`<div class="wc-col"><div class="wc-val">${d.val||''}</div><div class="wc-bar" style="height:${h}px;opacity:${d.val?1:.15}"></div><div class="wc-day">${d.day}</div></div>`;
+  }).join('')}</div>`;
+}
+
+async function saveThought(){
+  const txt=document.getElementById('thoughtIn').value.trim();
+  if(!txt)return;
+  const thoughts=await loadThoughts();
+  const now=new Date();
+  thoughts.unshift({
+    id:Date.now(),
+    text:txt,
+    date:now.getDate()+' '+M[now.getMonth()]+' '+now.getFullYear()+', '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')
+  });
+  await saveThoughts(thoughts);
+  document.getElementById('thoughtIn').value='';
+  renderThoughts();
+  if(window.Telegram?.WebApp)Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+}
+
+async function deleteThought(id){
+  const thoughts=(await loadThoughts()).filter(t=>t.id!==id);
+  await saveThoughts(thoughts);
+  renderThoughts();
+}
+
+async function renderThoughts(){
+  const thoughts=await loadThoughts();
+  const list=document.getElementById('thoughtsList');
+  if(!thoughts.length){
+    list.innerHTML='<div class="empty">Здесь будет твоя книга.<br>Записывай мысли каждый день —<br>голосом или текстом.</div>';
+    return;
+  }
+  list.innerHTML=thoughts.map(t=>`
+    <div class="thought-card">
+      <div class="thought-date">${t.date}</div>
+      <div class="thought-text">${t.text.replace(/</g,'&lt;')}</div>
+      <button class="thought-del" onclick="deleteThought(${t.id})">удалить</button>
+    </div>`).join('');
+}
+
+function toggleMic(){
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
+    document.getElementById('vStatus').textContent='Используй Chrome для голосового ввода';
+    return;
+  }
+  if(isRec){rec&&rec.stop();return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  rec=new SR();
+  rec.lang='ru-RU';
+  rec.continuous=true;
+  rec.interimResults=true;
+  const btn=document.getElementById('micBtn');
+  const inp=document.getElementById('thoughtIn');
+  let base=inp.value;
+  rec.onstart=()=>{isRec=true;btn.classList.add('rec');document.getElementById('vStatus').textContent='Слушаю... говори 🎙'};
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)base+=(base?' ':'')+e.results[i][0].transcript;
+      else interim=e.results[i][0].transcript;
+    }
+    inp.value=base+(interim?' '+interim:'');
+  };
+  rec.onend=()=>{isRec=false;btn.classList.remove('rec');document.getElementById('vStatus').textContent='';};
+  rec.onerror=()=>{isRec=false;btn.classList.remove('rec');};
+  rec.start();
+}
+
+async function init(){
+  if(window.Telegram?.WebApp){
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+  }
+  const today=new Date();
+  document.getElementById('dayDate').textContent=today.getDate()+' '+M[today.getMonth()]+' '+today.getFullYear();
+  const w=await loadWeight(curDay);
+  if(w)document.getElementById('wInp').value=w;
+  document.getElementById('noteIn').value=await loadNote(curDay);
+  buildNav();
+  renderTasks();
+  renderThoughts();
+}
+init();
+</script>
+</body>
+</html>
